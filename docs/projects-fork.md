@@ -4,7 +4,7 @@ This fork ([kadzuya/pstack-claude](https://github.com/kadzuya/pstack-claude)) ad
 
 ## Why
 
-Upstream pstack isolates parallel writers by running each one on its own remote machine and branch. pstack-claude runs on one Claude Code machine, so it turned those writers into worktrees, keeps its store under `~/.claude/orchestrate/`, and runs audits with `/loop`. A Claude Project already has the closer match: each thread is its own container and clone, `/mnt/project-files` is shared and outlives every container, routines replace `/loop`, and decision cards replace `AskUserQuestion`. The fork maps the skills onto those, without rewriting upstream text.
+Upstream pstack isolates parallel writers by running each one on its own remote machine and branch. pstack-claude runs on one Claude Code machine, so it turned those writers into worktrees, keeps its store under `~/.claude/orchestrate/`, and runs audits with `/loop`. A Claude Project already has the closer match: each thread is its own container and clone, so a thread creates its branch in its own checkout and needs no worktree, even for pull-request work; `/mnt/project-files` is shared and outlives every container, routines replace `/loop`, and decision cards replace `AskUserQuestion`. The fork maps the skills onto those, without rewriting upstream text.
 
 ## What the fork changes
 
@@ -29,10 +29,7 @@ A conflict can only come from `session-start.sh`. After each merge, check that `
 
 ## Status (2026-10-14)
 
-- Done: the mapping, the hook branch, generator and tests pass.
+- Done: the mapping, the hook branch, generator and tests pass. The per-skill notes cover every playbook that asks for a worktree, a branch, or a PR command.
+- Found in a real thread: `CLAUDE_CODE_PROJECTS_SESSION` is set, and the GitHub CLI is not signed in, so PR work goes through the GitHub MCP tools.
 - Not yet verified: that a real Project thread with the plugin installed reads the mapping and follows it.
 - Next: install the fork in a Project (marketplace `kadzuya/pstack-claude`, plugin `pstack@pstack-claude`, project scope in `.claude/settings.json`), run one real feature through it, fix the mapping from what goes wrong, then add a routine that merges `upstream/main` on a cadence. Once it holds up, consider proposing the mapping to pstack-claude as a Projects runtime note.
-
-## First consumer
-
-[kadzuya/musical-game](https://github.com/kadzuya/musical-game) commits directly to `main` with no pull requests, and its `AGENTS.md` forbids worktrees without the owner's consent. It will add project playbooks under `.agents/playbooks/` that replace the PR steps with "rebase, rerun checks, push to main" and point verification at its own `verify` skill. Design notes from that project: `/mnt/project-files/pstack-adoption/` in the musical-game Claude Project.
