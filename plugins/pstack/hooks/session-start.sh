@@ -6,6 +6,11 @@ set -eu
 case "${1:-}" in
   claude)
     sheet="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/pstack-models.md"
+    # Claude Projects reclaim the container, so a sheet in the shared folder
+    # is the only one that survives from one session to the next.
+    if [ -n "${CLAUDE_CODE_PROJECTS_SESSION:-}" ] && [ -f /mnt/project-files/.pstack/pstack-models.md ]; then
+      sheet=/mnt/project-files/.pstack/pstack-models.md
+    fi
     reader="${CLAUDE_PLUGIN_ROOT}/skills/setup-pstack/scripts/read-sheet.sh"
     ;;
   codex)
@@ -45,3 +50,6 @@ if [ "$1" = copilot ]; then
 fi
 
 cat "${CLAUDE_PLUGIN_ROOT}/hooks/session-start-context.md"
+if [ "$1" = claude ] && [ -n "${CLAUDE_CODE_PROJECTS_SESSION:-}" ]; then
+  cat "${CLAUDE_PLUGIN_ROOT}/hooks/session-start-projects.md"
+fi

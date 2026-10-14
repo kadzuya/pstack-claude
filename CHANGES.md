@@ -2,6 +2,10 @@
 
 This file is the release changelog, with one `## <version> - <title>` entry per release, newest first. The Cursor-to-Claude rewrite rules live in [`tools/substitutions.json`](tools/substitutions.json), and the [sync boundary](CONTRIBUTING.md#the-sync-boundary) in `CONTRIBUTING.md` defines how a change to upstream's skill content is declared.
 
+## Unreleased (kadzuya fork) - map pstack onto Claude Projects
+
+A new `poteto-mode/references/projects-tools.md` maps the skills onto a Claude Project: threads instead of worktrees for parallel writers, `/mnt/project-files/orchestrate/` instead of `~/.claude/orchestrate/`, decision cards instead of `AskUserQuestion`, routines and thread wakes instead of `/loop`, and the project's messaging tools for replies. The Claude Code `SessionStart` hook points the session at that file when `CLAUDE_CODE_PROJECTS_SESSION` is set, and in a Project it reads the model sheet from `/mnt/project-files/.pstack/pstack-models.md` when one exists, since the container is reclaimed. See [docs/projects-fork.md](docs/projects-fork.md).
+
 ## 0.9.84 - run the Codex SessionStart hook again
 
 0.9.83 shipped a root `plugins/pstack/plugin.json` in the Agent Plugins 1.0.0 format. Codex reads that manifest before `.codex-plugin/plugin.json` and loads no plugin hooks for an Agent Plugins manifest, so on Codex the `SessionStart` hook stopped running and sessions lost the pstack routing instruction. Skills still loaded, and Claude Code was not affected. The root manifest is gone, so Codex reads `.codex-plugin/plugin.json` and its hooks again. The generator now fails when `plugins/pstack/plugin.json` exists, and the sync still excludes upstream's copy. A packaging test follows Codex's manifest lookup over the shipped plugin and checks that it finds the `SessionStart` hook, and that the 0.9.83 manifest would hide it. @Dude-Bear found the cause and confirmed it by moving the file aside, in [#265](https://github.com/michael-denyer/pstack-claude/issues/265).
