@@ -1,6 +1,6 @@
 # Claude Projects mapping for pstack
 
-A Claude Project runs Claude Code sessions in the cloud: one coordinator session that watches the project chat, and one thread session per thread, each in its own container with its own clone. The skills work as written on Claude Code. This file covers what changes because the session is one of many in a Project. Read it when a pstack skill names a worktree, a branch or PR command, a store under `~/.claude/`, the `loop` skill, `AskUserQuestion`, a reply to the operator, or a transcript.
+A Claude Project runs Claude Code sessions in the cloud: one coordinator session that watches the project chat, and one thread session per thread, each in its own container with its own clone. The skills work as written on Claude Code. This file covers what changes because the session is one of many in a Project. Read it when a thread receives a large request, or when a pstack skill names a worktree, a branch or PR command, a store under `~/.claude/`, the `loop` skill, `AskUserQuestion`, a reply to the operator, or a transcript.
 
 Upstream pstack isolates writers by running each one on its own remote machine and branch. The Claude Code port replaced those with worktrees on one machine. In a Project, threads are the closer match to upstream's remote workers, so this mapping uses them.
 
@@ -21,11 +21,20 @@ Upstream pstack isolates writers by running each one on its own remote machine a
 | Wait for an event (`loop`, a sleep loop, a watcher) | End the turn. Thread wakes, PR events (`subscribe_pr_activity`), and decision taps arrive as new turns. A recurring cadence is a routine (`create_trigger`). |
 | Search transcripts under `~/.claude/projects/` | `mcp__hearthbot__fetch_thread`, `fetch_project_timeline`, `list_thread_sessions`, and the project memory. Older sessions: `list_events` on the claude-code-remote server. |
 
+## Splitting a request
+
+The coordinator triages from the message text alone. It does not read the code and does not run pstack, so it cannot tell which parts of a large request are independent. It sorts a message into threads only when the message plainly bundles separate asks. Every other split is the thread's call, made from the code.
+
+1. A thread that receives a large request reads the request and the code it touches first, then decides whether the request holds independent streams. Decide with Feature step 3's throughput checkpoint: disjoint files, services, or layers are independent; a shared write target is split first (the **separate-before-serializing-shared-state** principle skill); code-coupled work stays with one owner. Write the checkpoint into the todolist as Feature does.
+2. When the request should split, the thread cannot start threads itself, so it sends the coordinator a split plan with `send_message`. For each new thread the plan gives its title, its brief in orchestrate's template (GOAL, SCOPE, CONTEXT, ACCEPTANCE, VERIFY, REPORT), the files it alone writes, and the owner of each shared document (a design note or plan under `/mnt/project-files/<topic>/`). The thread names the original request's message id so the coordinator can attach it.
+3. The sending thread keeps one stream for itself, or becomes the owner of the shared documents, and the plan says which. It carries on with its own part without waiting, and starts none of the streams it handed off.
+4. The coordinator starts one thread per entry with `start_thread_session`, the plan's brief as its instructions and the original request in `context_message_ids`. It checks only that the plan's files do not overlap files another running thread owns. On an overlap it tells the planning thread who owns the file rather than redrawing the split.
+
 ## Writers and isolation
 
 - Inside one thread, code-writing delegates run one at a time in the thread's checkout. Readers run in parallel: `how` explorers, `why` investigators, reviewers, verifiers, arena runners that write only to their own scratch directory.
 - Do not create worktrees. Each thread already has its own container and clone, so it creates its branch in that checkout (`git checkout -b`), whether the work lands through a pull request or not. Where a skill says to give a writer its own worktree, give it the thread's checkout after the previous writer has returned and been reviewed.
-- Independent writing streams (upstream's parallel remote workers) become separate threads. A thread asks the coordinator for one with `send_message`, naming the brief. The coordinator starts it with `start_thread_session`. Fill orchestrate's brief template (GOAL, SCOPE, CONTEXT, ACCEPTANCE, VERIFY, REPORT); SCOPE names the files that thread alone may write.
+- Independent writing streams (upstream's parallel remote workers) become separate threads, planned by the thread that holds the request and started by the coordinator, per Splitting a request. SCOPE in each brief names the files that thread alone may write.
 - One writer per file across threads. The coordinator records which thread owns which files and tells the others when ownership moves.
 - Each thread lands its own work. Before pushing, fetch and rebase onto the current base, rerun the checks, and re-verify anything the rebase changed. A verdict recorded at the old head does not carry over.
 
@@ -55,7 +64,7 @@ The containers are reclaimed, so `~/.claude/pstack-models.md` does not survive a
 
 | Skill | In a Project |
 |---|---|
-| `poteto-mode` Feature step 4 | Delegate code to one subagent at a time in the thread's checkout, per Writers and isolation. Parallel independent slices become threads. |
+| `poteto-mode` Feature steps 3 and 4 | The throughput checkpoint is where a thread decides a split, per Splitting a request. Delegate code to one subagent at a time in the thread's checkout, per Writers and isolation. |
 | **Opening a PR** | Branch in the thread's checkout and open the PR through the GitHub MCP tools, per Branches, pull requests, and landing. A stack child targets its parent branch with `create_pull_request`'s `base`. |
 | `orchestrate` | The coordinator session is the coordinator. Workers that write are threads, not background subagents; readers and verifiers that only run commands can stay background subagents inside a thread. A brief's SCOPE names the owning thread and its branch in place of "its exclusive worktree or branch". Run `orch` with `ORCH_STORE=/mnt/project-files/orchestrate/<slug>`. Drain on thread wakes; there is no `gt`, so recompute the frontier from the PRs' bases and head SHAs through `pull_request_read`. |
 | `figure-it-out` | Its fan-out step uses threads for parallel writers and the thread's own checkout for one writer. |
