@@ -10,7 +10,7 @@ Upstream pstack isolates parallel writers by running each one on its own remote 
 
 | File | Change |
 |---|---|
-| `plugins/pstack/skills/poteto-mode/references/projects-tools.md` | New. The Projects mapping: tool actions, writers and isolation, store and standing orders, repository conventions, model sheet, per-skill notes. |
+| `plugins/pstack/skills/poteto-mode/references/projects-tools.md` | New. The Projects mapping: tool actions, splitting a request, writers and isolation, store and standing orders, repository conventions, model sheet, per-skill notes. |
 | `plugins/pstack/hooks/session-start.sh` | When `CLAUDE_CODE_PROJECTS_SESSION` is set, prints `session-start-projects.md` after the routing mandate, and reads the model sheet from `/mnt/project-files/.pstack/pstack-models.md` when that file exists. |
 | `plugins/pstack/hooks/session-start-projects.md` | New. Tells the session to read `projects-tools.md` before any pstack skill. |
 
