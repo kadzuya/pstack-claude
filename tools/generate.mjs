@@ -143,7 +143,8 @@ export function assertChangesHeading(changelog, version) {
   const newest = lines.find(leadsWithVersion);
   if (newest !== current) throw new Error(`CHANGES.md's newest release heading is "${newest}", but VERSION is ${version}`);
   const headings = lines.filter((line) => /^## \d+\.\d+\.\d+/.test(line));
-  const malformed = headings.filter((line) => !/^## \d+\.\d+\.\d+ - \S/.test(line));
+  // The kadzuya fork appends -projects.N to pstack-claude's version (docs/projects-fork.md).
+  const malformed = headings.filter((line) => !/^## \d+\.\d+\.\d+(-projects\.\d+)? - \S/.test(line));
   if (malformed.length) {
     throw new Error(`CHANGES.md release headings read "## <version> - <title>":\n${malformed.join("\n")}`);
   }
@@ -456,6 +457,7 @@ export function regions(models) {
         [
           ["Default", "default"],
           ["Strongest", "strongest"],
+          ["Worker", "worker"],
           ["Panel", "panel"],
         ].map(([label, tier]) => `| ${label} | ${models.roles.filter((r) => r.tier === tier).map((r) => code(r.role)).join(", ")} |`),
     },
@@ -538,7 +540,7 @@ export function applyRegions(file, text, models, { strict = true } = {}) {
   return lines.join("\n");
 }
 
-// A role's "models" names a tier (default, strongest, panel) or lists slugs.
+// A role's "models" names a tier (default, strongest, worker, panel) or lists slugs.
 // A tier resolves to its models and stays on the role as `tier`, so moving a
 // tier is one edit and the Codex mapping can follow the same keys.
 export function resolveModels(models) {
@@ -551,7 +553,7 @@ export function resolveModels(models) {
 }
 
 const EFFORT_LEVELS = ["low", "medium", "high", "xhigh", "max"];
-const TIERS = ["default", "strongest", "panel"];
+const TIERS = ["default", "strongest", "worker", "panel"];
 
 // Check models.json's shape and resolve its tiers, throwing with the offending
 // role, tier, or slug named. `skillExists(skill)` reports whether a role's
@@ -914,7 +916,10 @@ export function validateHooks(hooksJson, { statOf, file = "hooks/hooks.json", ro
 export function plan(root, models) {
   const read = (rel) => readFileSync(join(root, rel), "utf8");
   const version = read("VERSION").trim();
-  if (!/^\d+\.\d+\.\d+$/.test(version)) throw new Error(`VERSION must be MAJOR.MINOR.PATCH, got "${version}"`);
+  // The kadzuya fork appends -projects.N to pstack-claude's version (docs/projects-fork.md).
+  if (!/^\d+\.\d+\.\d+(-projects\.\d+)?$/.test(version)) {
+    throw new Error(`VERSION must be MAJOR.MINOR.PATCH or MAJOR.MINOR.PATCH-projects.N, got "${version}"`);
+  }
   assertChangesHeading(read("CHANGES.md"), version);
   models ??= loadModels(root);
 
