@@ -24,7 +24,8 @@ export const RECORD = "tools/fork-version.json";
 function pluginFiles(root) {
   const result = spawnSync("git", ["ls-files", "-z", "-co", "--exclude-standard", "--", PLUGIN], { cwd: root, encoding: "utf8" });
   if (result.status !== 0) throw new Error(`git ls-files failed: ${result.stderr}`);
-  return result.stdout.split("\0").filter(Boolean).sort();
+  // An unmerged path is listed once per stage, so count each path once.
+  return [...new Set(result.stdout.split("\0").filter(Boolean))].sort();
 }
 
 export function pluginHash(root = repo) {
