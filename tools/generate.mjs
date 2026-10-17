@@ -143,6 +143,7 @@ export function assertChangesHeading(changelog, version) {
   const newest = lines.find(leadsWithVersion);
   if (newest !== current) throw new Error(`CHANGES.md's newest release heading is "${newest}", but VERSION is ${version}`);
   const headings = lines.filter((line) => /^## \d+\.\d+\.\d+/.test(line));
+  // The kadzuya fork appends -projects.N to pstack-claude's version (docs/projects-fork.md).
   const malformed = headings.filter((line) => !/^## \d+\.\d+\.\d+(-projects\.\d+)? - \S/.test(line));
   if (malformed.length) {
     throw new Error(`CHANGES.md release headings read "## <version> - <title>":\n${malformed.join("\n")}`);
@@ -915,7 +916,7 @@ export function validateHooks(hooksJson, { statOf, file = "hooks/hooks.json", ro
 export function plan(root, models) {
   const read = (rel) => readFileSync(join(root, rel), "utf8");
   const version = read("VERSION").trim();
-  // The kadzuya fork appends -projects.N to upstream's version (docs/projects-fork.md).
+  // The kadzuya fork appends -projects.N to pstack-claude's version (docs/projects-fork.md).
   if (!/^\d+\.\d+\.\d+(-projects\.\d+)?$/.test(version)) {
     throw new Error(`VERSION must be MAJOR.MINOR.PATCH or MAJOR.MINOR.PATCH-projects.N, got "${version}"`);
   }
