@@ -27,7 +27,7 @@ Claude Code caches an installed plugin under its version and updates it only whe
 2. `bun tools/generate.mjs` stamps the manifests.
 3. `bun tools/projects-layer.mjs` records the new hash. Before the PR merges, a review fix to the same files reruns it with `--amend`.
 
-An upstream merge that moves upstream's VERSION resets N to 1 (`0.9.85-projects.1`). `docs/projects-*.md` do not ship in the plugin, so a change to them alone needs no bump.
+An upstream merge that moves upstream's VERSION resets N to 1 (`0.9.91-projects.1`). `docs/projects-*.md` do not ship in the plugin, so a change to them alone needs no bump.
 
 ## Keeping up with pstack-claude
 
