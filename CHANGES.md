@@ -6,6 +6,8 @@ This file is the release changelog, with one `## <version> - <title>` entry per 
 
 This release merges pstack-claude 0.9.102, whose entries follow, under the fork's Projects layer.
 
+The Projects mapping (`projects-tools.md`) now names Claude Code's transcripts directory as `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects/`, as the parent's skills do since 0.9.98, and says that in a Project `reflect` and `automate-me` read transcripts through the hearthbot fetch tools and `list_events`, not through `claude-project-dir.mjs`.
+
 ## 0.9.102 - The skill link validator keeps angle-bracket destinations
 
 `tools/validate-skills.mjs` now reads a Markdown link destination written in angle brackets, such as `[text](<path with spaces.md>)`, as the path inside the brackets. It used to check the brackets as part of the path, so a link to an existing file was reported as broken. No skill content changed. `tests/agent-skills.test.mjs` covers the case.
