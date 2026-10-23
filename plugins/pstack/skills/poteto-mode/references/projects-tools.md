@@ -1,6 +1,6 @@
 # Claude Projects mapping for pstack
 
-A Claude Project runs Claude Code sessions in the cloud: one coordinator session that watches the project chat, and one thread session per thread, each in its own container with its own clone. The skills work as written on Claude Code. This file covers what changes because the session is one of many in a Project. Read it when a thread receives a request that spans more than one stage or file, or when a pstack skill names a worktree, a branch or PR command, a store under `~/.claude/`, the `loop` skill, `AskUserQuestion`, a reply to the operator, or a transcript.
+A Claude Project runs Claude Code sessions in the cloud: one coordinator session that watches the project chat, and one thread session per thread, each in its own container with its own clone. The skills work as written on Claude Code. This file covers what changes because the session is one of many in a Project. Read it when a thread receives a request that spans more than one stage or file, or when a pstack skill names a worktree, a branch or PR command, a store under `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/`, the `loop` skill, `AskUserQuestion`, a reply to the operator, or a transcript.
 
 Upstream pstack isolates writers by running each one on its own remote machine and branch. The Claude Code port replaced those with worktrees on one machine. In a Project, threads are the closer match to upstream's remote workers, so this mapping uses them.
 
@@ -19,7 +19,7 @@ Upstream pstack isolates writers by running each one on its own remote machine a
 | Attach evidence (screenshots, logs, media) | Write it under `/mnt/project-files/<topic>/` and list it in `reply`'s `attached_outputs`. |
 | Track tasks (the todolist) | `TaskCreate` / `TaskUpdate` as on Claude Code. Mirror the steps the operator should see into `update_status`. |
 | Wait for an event (`loop`, a sleep loop, a watcher) | End the turn. Thread wakes, PR events (`subscribe_pr_activity`), and decision taps arrive as new turns. A recurring cadence is a routine (`create_trigger`). |
-| Search transcripts under `~/.claude/projects/` | `mcp__hearthbot__fetch_thread`, `fetch_project_timeline`, `list_thread_sessions`, and the project memory. Older sessions: `list_events` on the claude-code-remote server. |
+| Search transcripts under `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects/` | `mcp__hearthbot__fetch_thread`, `fetch_project_timeline`, `list_thread_sessions`, and the project memory. Older sessions: `list_events` on the claude-code-remote server. |
 
 ## Splitting a request
 
@@ -84,5 +84,5 @@ The containers are reclaimed, so `~/.claude/pstack-models.md` does not survive a
 | `pause-safely`, `session-pickup`, `recall` | `resume.mjs` stores checkpoints under the clone's git directory, which the container takes with it. Write the resume note under `/mnt/project-files/resume/<thread-title>/` and push a `wip:` commit to the thread's branch. On pickup, read the thread with `fetch_thread`, the project memory, that resume directory, and the repository ledger before any transcript. |
 | `worktree-cleanup` | Does not apply. Containers are reclaimed with their checkouts. |
 | `show-me-your-work` | The trail lives in the shared folder (Store above), so the coordinator and later threads can audit it. |
-| `reflect`, `automate-me` | Transcripts come from the hearthbot fetch tools and `list_events`, not `~/.claude/projects/`. |
+| `reflect`, `automate-me` | Transcripts come from the hearthbot fetch tools and `list_events`, not `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects/` or `claude-project-dir.mjs`. |
 | `setup-pstack` | Write the sheet to `/mnt/project-files/.pstack/pstack-models.md`. |
