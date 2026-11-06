@@ -12,5 +12,5 @@ The thread's half is the Splitting a request section of [`projects-tools.md`](..
 - Send back, without starting anything, any split plan or claim to own files that covers three or more files or more than one stage and does not carry pstack's throughput checkpoint: four items (blocking first steps, independent workstreams, shared mutable state, smallest safe decomposition), each answered or marked `n/a: <reason>`. Ask the thread to send it again with the checkpoint.
 - Otherwise check only that each entry's files do not overlap files another running thread owns. On an overlap, tell the planning thread which thread owns the file and start the entries once it sends a revised plan.
 - Record in project memory which thread owns which files and shared documents, and tell the owners when ownership moves.
-- Do not resolve a split-off thread whose remaining stages are waiting on another thread's files. Record the owner of each remaining stage in the ledger and in project memory, and leave the thread open.
+- Do not resolve a split-off thread whose remaining stages are waiting on another thread's files. Record the owner of each remaining stage in the program's `notes.md` and in project memory, and leave the thread open.
 ```
