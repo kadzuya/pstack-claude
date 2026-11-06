@@ -15,7 +15,7 @@ The Live column records the end-to-end run on real Pi with `PSTACK_PI_LIVE=1` (`
 
 | ID | Claude Code mechanism | On Pi | Status | Evidence | Live |
 | --- | --- | --- | --- | --- | --- |
-| T01 | `Agent` tool dispatch | `agent` tool runs a child `pi --mode rpc` process and sends the prompt as an RPC command on its stdin | extension | `foreground waits, returns the final text and agentId, and runs the exact child command` | VERIFIED |
+| T01 | `Agent` tool dispatch | `agent` tool runs a child `pi --mode rpc` process and sends the prompt as an RPC command on its stdin. A `pi agent tools: off` sheet line removes it, for a profile that delegates through another extension | extension | `foreground waits, returns the final text and agentId, and runs the exact child command` | VERIFIED |
 | T02 | `subagent_type` | Resolves to the plugin's agent files; unknown types list the valid ones | extension | `unknown subagent_type is an error listing every valid type` | VERIFIED |
 | T03 | Per-call `model` | Family names resolve through `models.json` and the sheet's `pi models:` line | extension | `alias, sheet override, inherit-parent, auto, pass-through, and no parent model` | VERIFIED |
 | T04 | `run_in_background` | Returns the agent id at once; completion joins the running turn at the next tool boundary, or starts a turn when idle, after the process exits | extension | `background returns at once and the completion notice comes only after the process exits` | VERIFIED |
@@ -27,11 +27,11 @@ The Live column records the end-to-end run on real Pi with `PSTACK_PI_LIVE=1` (`
 | T10 | Deferred tool loading (`ToolSearch`) | Every pstack tool registers at startup with `model-only` exposure, so Pi declares it to the model from the first turn, in every `codemode.mode`, and `tool_search` never has to load it | extension | `every pstack tool is model-only, so Pi declares it to the model in every codemode mode and never defers it` | VERIFIED |
 | T11 | `Skill` tool and `/command` | Pi lists skills in the system prompt; `/skill:<name>` forces one | native | Pi docs/skills.md | n/a |
 | T12 | `pstack:` skill namespace | Skills load under their bare names and run as `/skill:<name>`; agent types keep `pstack:` | difference | Command spelling only. Skills name each other by bare name in prose, and agent types resolve with the prefix. | n/a |
-| T13 | `AskUserQuestion` | `ask_user_question` with the same shape; without a UI, and in a child agent, it fails and tells the model to ask in plain text | extension | `a single-select question returns the chosen label` | n/a |
+| T13 | `AskUserQuestion` | `ask_user_question` with the same shape; without a UI, and in a child agent, it fails and tells the model to ask in plain text. `pi ask tool: off` in the override sheet skips the registration, so another extension can own the name | extension | `a single-select question returns the chosen label` | n/a |
 | T14 | `TaskCreate`/`TaskUpdate`/`TodoWrite` | poteto-mode's own `todo.md` fallback | mapping | poteto-mode Platform Adaptation; pi-tools.md Tool actions | n/a |
 | T15 | `Read`/`Edit`/`Write`/`Bash`/`Grep`/`Glob` | `read`, `edit`, `write`, `bash`; `grep`, `find`, `ls` when enabled | native | pi-tools.md Tool actions | n/a |
 | T16 | `WebFetch`/`WebSearch` | `curl` through `bash`; web search through an MCP server | difference | No skill names either tool. Fetching works through `bash`. | n/a |
-| T17 | `ScheduleWakeup` (other named tools are never referenced) | `schedule_wakeup` with the same shape | extension | `clamps to 60 s and fires the prompt as a follow-up user message` | VERIFIED |
+| T17 | `ScheduleWakeup` (other named tools are never referenced) | `schedule_wakeup` with the same shape | extension | `clamps to 60 s and fires the prompt as a follow-up custom message that starts a turn` | VERIFIED |
 | T18 | MCP tool discovery | Pi's built-in MCP; list servers from the session's tools or `pi mcp list` | mapping | pi-tools.md `why` note | n/a |
 | T19 | Facts named in the system prompt | Pi's system prompt lists tools and skills; the transcript directory is given in pi-tools.md | mapping | pi-tools.md `reflect` note | n/a |
 | T20 | Image-generation tool | None, as on Claude Code; draw with Mermaid or text | difference | Claude Code has no such tool either, so `teach` already falls back. | n/a |
