@@ -6,6 +6,8 @@ This file is the release changelog, with one `## <version> - <title>` entry per 
 
 This release merges pstack-claude 0.9.139, whose entries follow, under the fork's Projects layer.
 
+The hook's Claude branch keeps both sheets: in a Project the shared-folder sheet stands in for the user sheet, and the parent's committed project sheet, `.claude/pstack-models.md`, replaces it. `projects-tools.md` says so in its Model sheet section and `setup-pstack` note, and notes that home playbooks under `~/.agents/playbooks/` do not survive a Project's container.
+
 ## 0.9.139 - safer worktree cleanup and resume, playbook checks, and GPT-6.2 defaults
 
 The worktree audit checks ignored files in initialized submodules and compares local branches with the tips advertised by origin. Pi records ownership in each new agent worktree's private Git directory so reusing its path cannot redirect a resumed agent or its cleanup.
