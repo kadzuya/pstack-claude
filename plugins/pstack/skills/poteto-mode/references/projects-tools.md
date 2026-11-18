@@ -63,12 +63,13 @@ The coordinator triages from the message text alone. It does not read the code a
 
 ## Model sheet
 
-The containers are reclaimed, so `~/.claude/pstack-models.md` does not survive a session. When `/mnt/project-files/.pstack/pstack-models.md` exists, the hook reads that sheet instead. `setup-pstack` should write it there in a Project. Without a sheet, the role defaults in each Models section apply.
+The containers are reclaimed, so `~/.claude/pstack-models.md` does not survive a session. When `/mnt/project-files/.pstack/pstack-models.md` exists, the hook reads that sheet in its place, so in a Project it is the user sheet. A project sheet, `.claude/pstack-models.md` committed at the repository root, survives with the repository and replaces either one. Without a sheet, the role defaults in each Models section apply.
 
 ## Per-skill notes
 
 | Skill | In a Project |
 |---|---|
+| `poteto-mode` **Project playbooks** | `~/.agents/playbooks/` is in the container and does not survive a session. Put a playbook in the repository's `.agents/playbooks/` instead. |
 | `poteto-mode` Feature steps 3 and 4 | The throughput checkpoint is where a thread decides a split, per Splitting a request. Delegate code to one subagent at a time in the thread's checkout, per Writers and isolation. |
 | **Opening a PR** | Branch in the thread's checkout and open the PR through the GitHub MCP tools, per Branches, pull requests, and landing. A stack child targets its parent branch with `create_pull_request`'s `base`. |
 | `orchestrate` | The coordinator session is the coordinator. Workers that write are threads, not background subagents; readers and verifiers that only run commands can stay background subagents inside a thread. A kickoff's write paths name the owning thread and its branch in place of "its own worktree or branch". Keep `notes.md` under `/mnt/project-files/orchestrate/<slug>/`. Watch each PR through the owning thread's `subscribe_pr_activity`, and check a PR's live state with `pull_request_read` in place of `gh pr view` and `gh pr checks`. |
@@ -85,4 +86,4 @@ The containers are reclaimed, so `~/.claude/pstack-models.md` does not survive a
 | `worktree-cleanup` | Does not apply. Containers are reclaimed with their checkouts. |
 | `show-me-your-work` | The trail lives in the shared folder (Store above), so the coordinator and later threads can audit it. |
 | `reflect`, `automate-me` | Transcripts come from the hearthbot fetch tools and `list_events`, not `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects/` or `claude-project-dir.mjs`. |
-| `setup-pstack` | Write the sheet to `/mnt/project-files/.pstack/pstack-models.md`. |
+| `setup-pstack` | The user sheet is `/mnt/project-files/.pstack/pstack-models.md`, per Model sheet; an `@` line in `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/CLAUDE.md` would leave with the container, so the hook reads only its `session hook` line, and a session reads its role lines before a role-model skill. A project sheet is written, included, and committed as the skill says. |

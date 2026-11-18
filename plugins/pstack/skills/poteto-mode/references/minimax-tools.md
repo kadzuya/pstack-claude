@@ -45,13 +45,13 @@ Skills name Claude Code model aliases in their Models sections. Those aliases ar
 - A role line in the sheet is the user's explicit model instruction, so pass it as the `task` tool's `model`. Pass the role's `@level`, or the sheet's `default effort`, as `effort`. The `task` tool fails a model other than the parent's that offers effort levels when `effort` is missing or names a level the model does not offer, such as `high` on MiniMax M3, which offers only `on` and `off`. When the level is not one the model offers, ask the user which to use. `inherit-parent` or `auto` omits `model` and `effort`.
 - Roles that default to the worker model (`feature, refactoring`): the worker model the user chose.
 - Roles that default to the strongest model (`strongest judgment`): the strongest model the user chose.
-- Diverse-model panels (`arena`, `architect`, `interrogate`, `how` critics, `reflect`): the adversarial signal comes from model diversity, so fill a panel from distinct providers. If only one model family is reachable, vary reasoning effort and note in the verdict that diversity was reduced.
+- Diverse-model panels (`arena`, `architect`, `interrogate`): the adversarial signal comes from model diversity, so fill a panel from distinct providers. If only one model family is reachable, vary reasoning effort and note in the verdict that diversity was reduced.
 
 `/setup-pstack` writes the configured model list. On MiniMax Code, list the models with `mcode provider list` or the `model` slash command and write only keys they show.
 
 ## Session routing hook
 
-MiniMax Code runs the Claude Code plugin's `SessionStart` hook through its Claude Code reader. The hook finds `MINIMAX_PLUGIN_ROOT` in its environment and injects the poteto-mode mandate in MiniMax Code wording, which points here. It reads `session hook` from the MiniMax Code sheet, at the path in [setup-pstack's runtime table](../../setup-pstack/SKILL.md#other-runtimes); `session hook: off` disables injection. MiniMax Code passes hooks and the `bash` tool a fixed set of environment variables that leaves out `MINIMAX_DATA_DIR`, so pstack keeps the sheet at `~/.minimax/pstack-models.md` even when the data directory moves. The hook is a POSIX `sh` script, and it is untested on Windows.
+MiniMax Code runs the Claude Code plugin's `SessionStart` hook through its Claude Code reader. The hook finds `MINIMAX_PLUGIN_ROOT` in its environment and injects the poteto-mode mandate in MiniMax Code wording, which points here. It reads `session hook` from the MiniMax Code sheet, at the path in [setup-pstack's runtime table](../../setup-pstack/references/runtimes.md); `session hook: off` disables injection. MiniMax Code passes hooks and the `bash` tool a fixed set of environment variables that leaves out `MINIMAX_DATA_DIR`, so pstack keeps the sheet at `~/.minimax/pstack-models.md` even when the data directory moves. The hook is a POSIX `sh` script, and it is untested on Windows.
 
 A skills-only installation does not include the hook. Request `poteto-mode` explicitly or add a standing instruction to `AGENTS.md` in that case.
 
@@ -74,7 +74,7 @@ Most skills need only the tables above. These need one more mapping:
 
 | Skill | On MiniMax Code |
 |-------|-----------------|
-| `setup-pstack` | The skill's Other runtimes table names the MiniMax Code sheet path. List models with `mcode provider list` or the `model` slash command. |
+| `setup-pstack` | The skill's [Other runtimes](../../setup-pstack/references/runtimes.md) table names the MiniMax Code sheet path. List models with `mcode provider list` or the `model` slash command. |
 | `no-comments` | The `comment-sicko` dispatch is a `task` call with `agent_name: "pstack:comment-sicko"`. |
 | `thermos` | Both review dispatches are `task` calls with the agents' `pstack:` names. |
 | `swarm` | Each worker is a `task` call. Give each writing worker its own worktree first (see Subagent policy). |
