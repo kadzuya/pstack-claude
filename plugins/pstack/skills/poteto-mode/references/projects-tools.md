@@ -1,25 +1,25 @@
 # Claude Projects mapping for pstack
 
-A Claude Project runs Claude Code sessions in the cloud: one coordinator session that watches the project chat, and one thread session per thread, each in its own container with its own clone. The skills work as written on Claude Code. This file covers what changes because the session is one of many in a Project. Read it when a thread receives a request that spans more than one stage or file, or when a pstack skill names a worktree, a branch or PR command, a store under `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/`, the `loop` skill, `AskUserQuestion`, a reply to the operator, or a transcript.
+A Claude Project runs Claude Code sessions in the cloud: one coordinator session that watches the project chat, and one thread session per thread, each in its own container with its own clone. The skills work as written on Claude Code. This file covers what changes because the session is one of many in a Project. Read it when a thread receives a request that spans more than one stage or file, or when a pstack skill names a worktree, a branch or PR command, a store under `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/`, the `loop` skill, `AskUserQuestion`, a reply to the operator, or a transcript. Tool names below are the ones a thread had on 2026-11-27; when a name is missing from the tool list, use the `mcp__hearthbot__*` tool that does the same job.
 
 Upstream pstack isolates writers by running each one on its own remote machine and branch. The Claude Code port replaced those with worktrees on one machine. In a Project, threads are the closer match to upstream's remote workers, so this mapping uses them.
 
 ## Detect
 
 - The environment variable `CLAUDE_CODE_PROJECTS_SESSION` is set. The plugin's SessionStart hook checks it and adds a pointer to this file.
-- `mcp__hearthbot__*` tools are in the tool list. A coordinator has `post_message` and `start_thread_session`. A thread has `reply` and `update_status`.
+- `mcp__hearthbot__*` tools are in the tool list. A thread has `post_message`, `update_progress_checklist`, `request_decision`, and `message_coordinator`. The coordinator posts in the project chat and is the only session that starts threads.
 
 ## Tool actions
 
 | pstack / Claude action | In a Project |
 |---|---|
-| Reply to the operator, a checkpoint report, the playbook's **Reply** | `mcp__hearthbot__reply` in a thread, `mcp__hearthbot__post_message` from the coordinator. Plain assistant text reaches no one. |
-| A status message, a progress line | `mcp__hearthbot__update_status` in a thread. It notifies no one, so use it for progress and keep `reply` for results, blockers, and decisions. |
-| Ask a fixed-choice question (`AskUserQuestion`) | `mcp__hearthbot__ask_decision`: one question, two to four options, one recommended. Work continues on the recommended option while the card is open, except for a step no one can undo. |
-| Attach evidence (screenshots, logs, media) | Write it under `/mnt/project-files/<topic>/` and list it in `reply`'s `attached_outputs`. |
-| Track tasks (the todolist) | `TaskCreate` / `TaskUpdate` as on Claude Code. Mirror the steps the operator should see into `update_status`. |
+| Reply to the operator, a checkpoint report, the playbook's **Reply** | `mcp__hearthbot__post_message`, in the thread or, from the coordinator, in the project chat. Plain assistant text reaches no one. Every turn ends with a `mcp__hearthbot__` call; `no_reply_needed` ends one that needs no message. |
+| A status message, a progress line | `mcp__hearthbot__update_progress_checklist` in a thread: the whole checklist each call, one step per line marked done, in progress, or not started. It notifies no one, so use it for progress and keep `post_message` for results, blockers, and questions. `react` acknowledges a message whose answer needs work first. |
+| Ask a fixed-choice question (`AskUserQuestion`) | `mcp__hearthbot__request_decision`: one question, two to four options, one recommended. Work continues on the recommended option while the card is open, except for a step no one can undo. |
+| Attach evidence (screenshots, logs, media) | Write it under `/mnt/project-files/<topic>/` and list it in `post_message`'s `attached_outputs`. |
+| Track tasks (the todolist) | `TaskCreate` / `TaskUpdate` as on Claude Code. Mirror the steps the operator should see into `update_progress_checklist`. |
 | Wait for an event (`loop`, a sleep loop, a watcher) | End the turn. Thread wakes, PR events (`subscribe_pr_activity`), and decision taps arrive as new turns. A recurring cadence is a routine (`create_trigger`). |
-| Search transcripts under `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects/` | `mcp__hearthbot__fetch_thread`, `fetch_project_timeline`, `list_thread_sessions`, and the project memory. Older sessions: `list_events` on the claude-code-remote server. |
+| Search transcripts under `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects/` | `mcp__hearthbot__read_thread`, `read_project_chat`, `list_threads`, `read_messages_by_id`, and the project memory. Older sessions: `list_events` on the claude-code-remote server. |
 
 ## Splitting a request
 
@@ -30,9 +30,9 @@ The coordinator triages from the message text alone. It does not read the code a
    - **It can start now.** The files it writes overlap no other stream's, or one commit that changes no behaviour separates them.
    - **It does not wait partway.** It never stops for files another stream is still writing.
    - **It is worth a thread.** It lands at least twice, or it carries a human decision or review of its own.
-3. When the request should split, the thread cannot start threads itself, so it sends the coordinator a split plan with `send_message`. The plan carries the checkpoint. For each new thread the plan gives its title, its brief (the goal, the paths it may and may not write, the actions it must not take, and the evidence that proves it done), the files it alone writes, and the owner of each shared document (a design note or plan under `/mnt/project-files/<topic>/`). The thread names the original request's message id so the coordinator can attach it. A brief does not open with poteto-mode's `worker.md` line: that line is for subagents, and its rule against question tools would bar the new thread's decision cards. The new thread loads pstack itself.
+3. When the request should split, the thread cannot start threads itself, so it sends the coordinator a split plan with `message_coordinator`. The plan carries the checkpoint. For each new thread the plan gives its title, its brief (the goal, the paths it may and may not write, the actions it must not take, and the evidence that proves it done), the files it alone writes, and the owner of each shared document (a design note or plan under `/mnt/project-files/<topic>/`). The thread attaches the original request with `context_message_ids` so the coordinator can pass it on. A brief does not open with poteto-mode's `worker.md` line: that line is for subagents, and its rule against question tools would bar the new thread's decision cards. The new thread loads pstack itself.
 4. The sending thread keeps one stream for itself, or becomes the owner of the shared documents, and the plan says which. It carries on with its own part without waiting, and starts none of the streams it handed off.
-5. The coordinator starts one thread per entry with `start_thread_session`, the plan's brief as its instructions and the original request in `context_message_ids`. It sends back, without starting anything, a plan or an ownership claim that covers three or more files or more than one stage and does not carry the four checkpoint items, each answered or marked `n/a: <reason>`. Otherwise it checks only that the plan's files do not overlap files another running thread owns. On an overlap it tells the planning thread who owns the file rather than redrawing the split.
+5. The coordinator starts one thread per entry, the plan's brief as its instructions and the original request in `context_message_ids`. It sends back, without starting anything, a plan or an ownership claim that covers three or more files or more than one stage and does not carry the four checkpoint items, each answered or marked `n/a: <reason>`. Otherwise it checks only that the plan's files do not overlap files another running thread owns. On an overlap it tells the planning thread who owns the file rather than redrawing the split.
 6. A split-off thread whose remaining stages stop on another thread's files is not finished, so it is not resolved. The thread writes the owner of each remaining stage into the program's tracker (`/mnt/project-files/orchestrate/<slug>/notes.md`, through the coordinator) and into the project memory, then waits for the files.
 
 ## Writers and isolation
@@ -79,7 +79,7 @@ The containers are reclaimed, so `~/.claude/pstack-models.md` does not survive a
 | `visual-parity` | One thread per component, each on its own branch, replaces one worktree per component. Shared primitives land first, before the component threads start. Iterate on a component inside its thread's turns instead of `/loop`. |
 | `arena` | Each candidate writes to its own scratch directory, not a worktree. |
 | `swarm` | Workers that only read or measure run as background subagents. Workers that write go to separate threads, or write only to their own scratch directories. |
-| `pause-safely`, `session-pickup`, `recall` | `resume.mjs` stores checkpoints under the clone's git directory, which the container takes with it. Write the resume note under `/mnt/project-files/resume/<thread-title>/` and push a `wip:` commit to the thread's branch. On pickup, read the thread with `fetch_thread`, the project memory, that resume directory, and the repository ledger before any transcript. |
+| `pause-safely`, `session-pickup`, `recall` | `resume.mjs` stores checkpoints under the clone's git directory, which the container takes with it. Write the resume note under `/mnt/project-files/resume/<thread-title>/` and push a `wip:` commit to the thread's branch. On pickup, read the thread with `read_thread`, the project memory, that resume directory, and the repository ledger before any transcript. |
 | `worktree-cleanup` | Does not apply. Containers are reclaimed with their checkouts. |
 | `show-me-your-work` | The trail lives in the shared folder (Store above), so the coordinator and later threads can audit it. |
 | `reflect`, `automate-me` | Transcripts come from the hearthbot fetch tools and `list_events`, not `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects/` or `claude-project-dir.mjs`. |
