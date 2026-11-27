@@ -5,7 +5,7 @@ import * as childProcess from "node:child_process";
 import * as fs from "node:fs";
 import { join } from "node:path";
 
-import { agentEntry, alive, flag, listAgents, recordWith, restore, sleep, useWorld, waitFor } from "./harness.mjs";
+import { agentEntry, alive, flag, listAgents, recordWith, restore, sleep, useWorld, waitFor, withEnv } from "./harness.mjs";
 
 const setup = useWorld();
 
@@ -130,6 +130,24 @@ describe("registry", () => {
     expect(alive(first.pid)).toBe(false);
   });
 
+  test("a reap that ends after the session is replaced writes nothing to it, and the next look records the agent stopped", async () => {
+    const { w, ctx, host, entries } = await otherPi();
+    const [first] = w.invocations();
+    const exited = exitOf(host);
+    host.kill("SIGKILL");
+    await exited;
+    const resumed = await restore(w, entries);
+    const appendEntry = resumed.api.appendEntry;
+    resumed.api.appendEntry = () => {
+      throw new Error("This extension ctx is stale after session replacement or reload.");
+    };
+    await waitFor(() => !alive(first.pid));
+    await sleep(2 * w.settings.killGraceMs);
+    resumed.api.appendEntry = appendEntry;
+    expect((await listAgents(resumed, ctx))[0].status).toBe("stopped");
+    expect(resumed.entries.map((e) => e.data.status)).toEqual(["stopped"]);
+  });
+
   test("an orphan without recorded process identity cannot resume or be signalled until it exits", async () => {
     const { w, ctx, host, entries } = await otherPi();
     const [first] = w.invocations();
@@ -250,6 +268,61 @@ describe("registry", () => {
     expect((await listAgents(resumed, ctx))[0].status).toBe("stopped");
     expect(alive(reusedParent.pid)).toBe(true);
   });
+
+  test("a restored hc agent is left to its live launching pi, and once that pi is gone its terminal's program is ended", async () => {
+    const { w, pi, ctx } = setup({ script: { default: [{ sleep: 30000 }] } });
+    await pi.call("agent", { description: "terminal", prompt: "x", run_in_background: true }, ctx);
+    await w.until("invocation");
+    const program = w.invocations()[0].pid;
+    const launcher = w.spawn("sleep", ["30"], { detached: true });
+    const gone = w.spawn("sleep", ["0.1"]);
+    await exitOf(gone);
+    const asHc = (parentPid) => pi.entries.map((e) => agentEntry(recordWith(e.data, { host: "hc", parentPid })));
+
+    const kept = await restore(w, asHc(launcher.pid));
+    await sleep(2 * w.settings.killGraceMs);
+    expect(alive(program)).toBe(true);
+    expect((await listAgents(kept, ctx))[0].status).toBe("running");
+
+    const resumed = await restore(w, asHc(gone.pid));
+    await waitFor(() => !alive(program));
+    expect((await listAgents(resumed, ctx))[0].status).toBe("stopped");
+  });
+
+  // The fake hc fails every call but `get`, which names the pid in the terminal's
+  // pid file, fails without one, or never answers once a hang file exists.
+  for (const [what, get] of [
+    ["is found by its terminal name, and its program is ended", "names it"],
+    ["is stopped, and nothing is signalled, when hc names no terminal", "fails"],
+    ["is stopped, and nothing is signalled, when hc does not answer", "hangs"],
+  ]) {
+    test(`a restored hc agent whose launching pi died before hc reported its terminal's pid ${what}`, async () => {
+      const { w, pi, ctx } = setup({ sheet: "pi agent host: hc\n" });
+      const bin = join(w.cwd, "..", "bin");
+      fs.mkdirSync(bin);
+      fs.writeFileSync(
+        join(bin, "hc"),
+        `#!/bin/sh\n[ "$1" = get ] || exit 1\n[ -f "${bin}/hang" ] && exec sleep 30\n[ -f "${bin}/$3.pid" ] || exit 1\nprintf '{"pid":%s,"status":null,"turn":0}\\n' "$(cat "${bin}/$3.pid")"\n`,
+        { mode: 0o755 },
+      );
+      const env = { PATH: `${bin}:${process.env.PATH}`, HC_TERMINAL_ID: "t-test" };
+      await withEnv(env, () => pi.call("agent", { description: "terminal", prompt: "x" }, ctx));
+      const [launched] = pi.entries;
+      expect(launched.data).toMatchObject({ status: "running", host: "hc" });
+      expect(launched.data.pid).toBeUndefined();
+      const program = w.spawn("sleep", ["30"], { detached: true });
+      if (get === "names it") fs.writeFileSync(join(bin, `${launched.data.agent.id}.pid`), String(program.pid));
+      if (get === "hangs") fs.writeFileSync(join(bin, "hang"), "");
+
+      const started = Date.now();
+      const resumed = await withEnv(env, () => restore(w, [launched]));
+      expect(Date.now() - started).toBeLessThan(10_000);
+      if (get === "names it") await waitFor(() => !alive(program.pid));
+      else await sleep(2 * w.settings.killGraceMs);
+      expect(alive(program.pid)).toBe(get !== "names it");
+      expect((await listAgents(resumed, ctx))[0].status).toBe("stopped");
+    }, 15_000);
+  }
 
   test("send_message and stop_agent refuse an agent another live pi process is running, naming that process", async () => {
     const { w, ctx, host: liveParent, entries } = await otherPi();

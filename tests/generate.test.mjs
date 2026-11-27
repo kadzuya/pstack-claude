@@ -104,24 +104,44 @@ describe("regions", () => {
   });
 
   test("applyRegions stamps in place and is idempotent", () => {
-    const file = "plugins/pstack/skills/how/SKILL.md";
-    const text = "# how\n\n## Models\n\nstale\n\n## After\nkeep\n\n## Reasoning effort\n";
+    const file = "plugins/pstack/skills/swarm/SKILL.md";
+    const text = "# swarm\n\n## Models\n\nstale\n\n## After\nkeep\n\n## Reasoning effort\n";
     const once = applyRegions(file, text, models);
     expect(once).not.toContain("stale");
     expect(once).toContain("## After\nkeep\n");
-    expect(once).toContain("- how explorer:");
+    expect(once).toContain("- swarm workers:");
     expect(applyRegions(file, once, models)).toBe(once);
   });
 
   test("applyRegions throws when an owned file lost its anchor", () => {
-    expect(() => applyRegions("plugins/pstack/skills/how/SKILL.md", "# how\n\n## Reasoning effort\n", models)).toThrow(
-      "plugins/pstack/skills/how/SKILL.md: no anchor for the Models section to stamp",
+    expect(() => applyRegions("plugins/pstack/skills/swarm/SKILL.md", "# swarm\n\n## Reasoning effort\n", models)).toThrow(
+      "plugins/pstack/skills/swarm/SKILL.md: no anchor for the Models section to stamp",
     );
   });
 
   test("applyRegions leaves a file the generator does not own untouched", () => {
     const text = "# other\n\n## Models\n\nprose\n";
     expect(applyRegions("plugins/pstack/skills/other/SKILL.md", text, models)).toBe(text);
+  });
+
+  test("setup-pstack override sheet scopes PSTACK_SESSION_HOOK=off to the runtimes that honor it", () => {
+    const file = "plugins/pstack/skills/setup-pstack/SKILL.md";
+    const stamped = applyRegions(file, readFileSync(join(repoRoot, file), "utf8"), models);
+    const sheet = spanned(fenceUnder("Write the override sheet", "markdown"), lines(stamped))?.join("\n") ?? "";
+    expect(sheet).not.toContain("leaves it on unless the environment sets `PSTACK_SESSION_HOOK=off`");
+    expect(sheet).toContain("`session hook: off` stops the supported runtime's pstack routing hook from injecting the poteto-mode mandate; any other value, or no line, leaves it on.");
+    expect(sheet).toContain("Setting `PSTACK_SESSION_HOOK=off` in the environment also keeps the hook off on Claude Code, and on Codex, GitHub Copilot, Muse, and Antigravity when the runtime passes the variable to its hooks;");
+    expect(sheet).toContain("MiniMax Code passes its hooks a fixed set of variables, and the OMP, OpenCode, and Pi plugins read only the sheet.");
+  });
+
+  test("setup-pstack steps 4 and 8 scope the PSTACK_SESSION_HOOK claim to the runtimes that honor it", () => {
+    const text = readFileSync(join(repoRoot, "plugins/pstack/skills/setup-pstack/SKILL.md"), "utf8");
+    const step8 = text.slice(text.indexOf("### 8. Confirm"), text.indexOf("### 9."));
+    expect(step8).not.toContain("When `PSTACK_SESSION_HOOK` is `off` in the environment, say");
+    expect(step8).toContain("on Claude Code, or on Codex, GitHub Copilot, Muse, or Antigravity when the runtime passes the variable to its hooks, say that it keeps the hook off over the sheet.");
+    expect(step8).toContain("MiniMax Code passes its hooks a fixed set of variables, and the OMP, OpenCode, and Pi plugins read only the sheet, so do not report it there.");
+    expect(text).not.toContain("An environment that sets `PSTACK_SESSION_HOOK=off` keeps the hook off whatever the sheet says.");
+    expect(text).toContain("On Claude Code, and on Codex, GitHub Copilot, Muse, and Antigravity when the runtime passes the variable to its hooks, an environment that sets `PSTACK_SESSION_HOOK=off` keeps the hook off whatever the sheet says.");
   });
 });
 
@@ -146,8 +166,8 @@ describe("runtime model names", () => {
 
 describe("strayModelSlugs", () => {
   test("a slug inside an owned region is exempt", () => {
-    const file = "plugins/pstack/skills/how/SKILL.md";
-    const text = applyRegions(file, "# how\n\n## Models\n\nx\n\n## Reasoning effort\n", models);
+    const file = "plugins/pstack/skills/swarm/SKILL.md";
+    const text = applyRegions(file, "# swarm\n\n## Models\n\nx\n\n## Reasoning effort\n", models);
     expect(strayModelSlugs(file, text, models)).toEqual([]);
   });
 
@@ -159,8 +179,8 @@ describe("strayModelSlugs", () => {
   });
 
   test("a slug outside the owned region of an owned file is a stray", () => {
-    const file = "plugins/pstack/skills/how/SKILL.md";
-    const text = applyRegions(file, "# how\n\n## Models\n\nx\n\n## Setup\n\nPrefer claude-sonnet-4-6.\n\n## Reasoning effort\n", models);
+    const file = "plugins/pstack/skills/swarm/SKILL.md";
+    const text = applyRegions(file, "# swarm\n\n## Models\n\nx\n\n## Setup\n\nPrefer claude-sonnet-4-6.\n\n## Reasoning effort\n", models);
     const strays = strayModelSlugs(file, text, models);
     expect(strays).toHaveLength(1);
     expect(strays[0]).toContain("Prefer claude-sonnet-4-6.");
@@ -394,12 +414,12 @@ describe("deriveSkill", () => {
   });
 
   test("appends and stamps a Models section when upstream has none", () => {
-    const out = deriveSkill("plugins/pstack/skills/how/SKILL.md", front("disable-model-invocation: true\n"), models, leads);
+    const out = deriveSkill("plugins/pstack/skills/swarm/SKILL.md", front("disable-model-invocation: true\n"), models, leads);
     expect(out.endsWith("body\n\n## Models\n\nRole defaults, stamped from")).toBe(false);
     expect(out).toContain("body\n\n## Models\n\nRole defaults, stamped from");
-    expect(out).toContain("- how explorer:");
+    expect(out).toContain("- swarm workers:");
     expect(out.endsWith("\n")).toBe(true);
-    expect(deriveSkill("plugins/pstack/skills/how/SKILL.md", out, models, leads)).toBe(out);
+    expect(deriveSkill("plugins/pstack/skills/swarm/SKILL.md", out, models, leads)).toBe(out);
   });
 
   test("leaves a region whose anchor upstream lacks unstamped instead of throwing", () => {
@@ -416,7 +436,7 @@ describe("deriveSkill", () => {
   });
 
   test("appends the Reasoning effort section after the Models section", () => {
-    const out = deriveSkill("plugins/pstack/skills/how/SKILL.md", front("disable-model-invocation: true\n"), models, leads);
+    const out = deriveSkill("plugins/pstack/skills/swarm/SKILL.md", front("disable-model-invocation: true\n"), models, leads);
     expect(out.indexOf("## Models")).toBeLessThan(out.indexOf("## Reasoning effort"));
     expect(out).toContain("`effort` on the Claude Code `Agent` call");
   });
@@ -463,8 +483,8 @@ describe("lead lines", () => {
     for (const text of ["# X\n\nA.\n", "# X\n\nA."]) expect(stampLeadLine(text, "A.")).toBe(text);
   });
 
-  test("Codex, Copilot, Muse, and Antigravity stamp a preamble on their noted skills, and Pi, MiniMax Code, OpenCode 2, Kimi Code CLI, OMP, and Grok Build stamp none", () => {
-    expect(RUNTIMES.map((r) => r.name)).toEqual(["Codex", "Pi", "GitHub Copilot", "Muse", "MiniMax Code", "Antigravity", "OMP", "Kimi Code CLI", "Grok Build", "OpenCode 2"]);
+  test("Codex, Copilot, Muse, and Antigravity stamp noted skill preambles; the other runtimes, including DSH, stamp none", () => {
+    expect(RUNTIMES.map((r) => r.name)).toEqual(["Codex", "Pi", "GitHub Copilot", "Muse", "MiniMax Code", "Antigravity", "OMP", "Kimi Code CLI", "Grok Build", "DeepSeek Harness", "OpenCode 2"]);
     expect(codex.preamble).toBe(
       "On Codex, read the [platform mapping](../poteto-mode/references/codex-tools.md), including its per-skill notes, before following this skill.",
     );
@@ -483,7 +503,8 @@ describe("lead lines", () => {
     expect(RUNTIMES.find((r) => r.name === "OpenCode 2").preamble).toBeNull();
     expect(RUNTIMES.find((r) => r.name === "OMP").preamble).toBeNull();
     expect(RUNTIMES.find((r) => r.name === "Grok Build").preamble).toBeNull();
-    expect([...leads.values()].flat().filter((line) => /(?:pi|minimax)-tools\.md/.test(line))).toEqual([]);
+    expect(RUNTIMES.find((r) => r.name === "DeepSeek Harness").preamble).toBeNull();
+    expect([...leads.values()].flat().filter((line) => /(?:pi|minimax|dsh)-tools\.md/.test(line))).toEqual([]);
   });
 
   test("poteto-mode's Platform Adaptation sentence points at every runtime's mapping in RUNTIMES order", () => {
@@ -520,6 +541,11 @@ describe("effort section", () => {
     expect(text).not.toContain("effort-<level>");
   });
 
+  test("Codex model and effort fields defer to the platform mapping's schema check", () => {
+    const text = effortSection(["low", "max"], "high");
+    expect(text).toContain("On Codex, pass `model` and `reasoning_effort` only as the platform mapping's schema check allows");
+  });
+
   test("session effort outside Claude Code defers to the platform mapping", () => {
     const text = effortSection(["low", "max"], "session");
     expect(text).toContain("On other runtimes, follow the platform mapping for `session`");
@@ -549,6 +575,21 @@ describe("plan, changes, apply", () => {
 
   test("the working tree is what the plan says", () => {
     expect(changes(repoRoot, plan(repoRoot))).toEqual([]);
+  });
+
+  test("a manifestless DSH runtime still gets mapping regions while both manifest loops skip it", () => {
+    const runtime = RUNTIMES.find((row) => row.name === "DeepSeek Harness");
+    expect(runtime.manifest).toBeUndefined();
+    expect(runtime.key).toBeUndefined();
+    const mapped = regions(models).find((region) => region.file === runtime.tools && region.name === "Model names section");
+    expect(mapped).toBeDefined();
+    const intended = plan(repoRoot);
+    expect(intended.files[runtime.tools]).toContain(runtime.modelNames(models));
+    expect(intended.files["plugins/pstack/skills/poteto-mode/SKILL.md"]).toContain("references/dsh-tools.md");
+    expect(Object.hasOwn(intended.files, "undefined")).toBe(false);
+    // plan() exercises VERSIONED_MANIFESTS; problems() exercises the separate
+    // packaging loop. Neither may attempt read(undefined) for a skills-only row.
+    expect(problems(repoRoot)).toEqual([]);
   });
 
   test("plan computes from the sources, repeats itself, and writes nothing", () => {
@@ -728,7 +769,7 @@ describe("plan, changes, apply", () => {
 
   test("plan converges a duplicated lead line, so --check flags the file as stale", () => {
     const root = repoCopy();
-    const file = "plugins/pstack/skills/how/SKILL.md";
+    const file = "plugins/pstack/skills/swarm/SKILL.md";
     const original = readFileSync(join(root, file), "utf8");
     expect(original).toContain(`\n\n${codex.preamble}\n`);
     writeFileSync(join(root, file), original.replace(`\n\n${codex.preamble}\n`, `\n\n${codex.preamble}\n${codex.preamble}\n`));
@@ -739,13 +780,13 @@ describe("plan, changes, apply", () => {
 
   test("two producers on one path compose", () => {
     const root = repoCopy();
-    const skill = "plugins/pstack/skills/how/SKILL.md";
+    const skill = "plugins/pstack/skills/swarm/SKILL.md";
     const text = (rel) => readFileSync(join(root, rel), "utf8");
     writeFileSync(
       join(root, skill),
       text(skill)
         .replace(`\n\n${leads.get(skill)[0]}\n`, "\n")
-        .replace(/^- how explorer: .*$/m, "- how explorer: stale"),
+        .replace(/^- swarm workers: .*$/m, "- swarm workers: stale"),
     );
     const { files } = plan(root);
     expect(files[skill]).toBe(readFileSync(join(repoRoot, skill), "utf8"));
@@ -772,7 +813,9 @@ describe("plan, changes, apply", () => {
   test.each(RUNTIMES.map((runtime) => [runtime.name, runtime]))("a %s per-skill note for a skill that does not exist fails", (_, runtime) => {
     const root = repoCopy();
     const tools = join(root, runtime.tools);
-    writeFileSync(tools, readFileSync(tools, "utf8").replace(/^\| `why` \|/m, "| `gone` |"));
+    const markdown = readFileSync(tools, "utf8");
+    const [skill] = noteSkills(runtime, markdown);
+    writeFileSync(tools, markdown.replace(`| \`${skill}\` |`, "| `gone` |"));
     expect(() => loadLeadLines(root)).toThrow(`${runtime.tools}: per-skill note for "gone", which has no SKILL.md`);
   });
 
