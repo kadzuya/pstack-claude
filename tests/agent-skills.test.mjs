@@ -4,6 +4,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   rmSync,
   symlinkSync,
@@ -352,6 +353,35 @@ describe("shared Agent Skills tree", () => {
     }
   });
 
+  test("the plan writes Codex no-implicit-invocation metadata for every principle leaf and no other skill", () => {
+    const { files } = plan(repoRoot);
+    const skills = agentSkills(skillsDir);
+    expect(skills.filter(({ name }) => name.startsWith("principle-")).length).toBeGreaterThan(0);
+    // Hidden from Codex's skill list, so the Codex mapping must give the path instead.
+    const codexTools = readFileSync(join(skillsDir, "poteto-mode/references/codex-tools.md"), "utf8");
+    expect(codexTools).toContain("`<poteto-mode-dir>/../principle-<title>/SKILL.md`");
+    // Every other skill that names a leaf carries the Codex preamble, so its reader reaches that row.
+    const preamble = "On Codex, read the [platform mapping](../poteto-mode/references/codex-tools.md)";
+    const unreached = skills
+      .map(({ name }) => name)
+      .filter((name) => !name.startsWith("principle-") && name !== "poteto-mode")
+      .filter((name) =>
+        readdirSync(join(skillsDir, name), { recursive: true })
+          .filter((file) => file.endsWith(".md"))
+          .some((file) => /principle skill|\*\*principle-/.test(readFileSync(join(skillsDir, name, file), "utf8"))),
+      )
+      .filter((name) => !readFileSync(join(skillsDir, name, "SKILL.md"), "utf8").includes(preamble));
+    expect(unreached).toEqual([]);
+    for (const { name } of skills) {
+      const metadata = files[`plugins/pstack/skills/${name}/agents/openai.yaml`];
+      if (name.startsWith("principle-")) {
+        expect(Bun.YAML.parse(metadata).policy.allow_implicit_invocation).toBe(false);
+      } else {
+        expect(metadata).toBeUndefined();
+      }
+    }
+  });
+
   test("linked skills keep their own resources and sibling principle leaves", () => {
     const root = mkdtempSync(join(tmpdir(), "pstack-agent-skills-"));
     const installed = join(root, "unrelated-home", ".agents", "skills");
@@ -427,10 +457,20 @@ describe("Codex model names", () => {
     expect(strongestLine).toContain("`strongest judgment`");
     expect(workerLine).toContain(`\`${raw.codex.worker}\``);
     expect(workerLine).toContain("`feature, refactoring`");
-    for (const role of ["bug-fix", "perf-issue", "hillclimb", "reflect tooling"]) {
+    for (const role of ["bug-fix", "perf-issue", "hillclimb", "judgment and prose"]) {
       expect(workerLine).not.toContain(`\`${role}\``);
       expect(strongestLine).not.toContain(`\`${role}\``);
     }
     for (const family of raw.available) expect(section).not.toContain(`\`${family}\``);
+  });
+
+  test("diverse-model panels fall back to varied effort when the spawn schema has no model field", () => {
+    const raw = JSON.parse(readFileSync(join(repoRoot, "plugins/pstack/models.json"), "utf8"));
+    const panelLine = codexModelNamesSection(resolveModels(raw))
+      .split("\n")
+      .find((line) => line.startsWith("- Diverse-model panels"));
+    expect(panelLine).toContain(
+      "or `spawn_agent` exposes no `model` field, vary reasoning effort where the schema has `reasoning_effort`",
+    );
   });
 });
