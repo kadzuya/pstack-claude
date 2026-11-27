@@ -2,6 +2,10 @@
 
 This file is the release changelog, with one `## <version> - <title>` entry per release, newest first. The Cursor-to-Claude rewrite rules live in [`tools/substitutions.json`](tools/substitutions.json), and the [sync boundary](CONTRIBUTING.md#the-sync-boundary) in `CONTRIBUTING.md` defines how a change to upstream's skill content is declared.
 
+## 0.9.158-projects.2 - current Claude Projects tool names (kadzuya fork)
+
+`projects-tools.md` named Claude Projects tools that threads no longer have. It now maps the reply to `post_message`, progress to `update_progress_checklist`, a fixed-choice question to `request_decision`, the split plan to `message_coordinator` with the request in `context_message_ids`, and transcript search to `read_thread`, `read_project_chat`, `list_threads`, and `read_messages_by_id`. The file says which date the names were read on, and to use the `mcp__hearthbot__*` tool that does the same job when a name is missing. It no longer names the coordinator's own tools, which a thread cannot see. The coordinator block in `docs/projects-coordinator.md` drops the same names.
+
 ## 0.9.158-projects.1 - merge pstack-claude 0.9.158 (kadzuya fork)
 
 This release merges pstack-claude 0.9.158, whose entries follow, under the fork's Projects layer.
